@@ -199,11 +199,6 @@ end
 
 
 local function handle_stats(message, stats)
-    do
-        local f = io.open("stats", "a")
-        f:write(stats, '\n')
-        f:close()
-    end
     local ok, stats = pcall(ingress.parse_stats, stats)
     local answer = ""
     if ok then
@@ -421,7 +416,7 @@ function api.on_message(message)
         user.admin = 1
     end
 
-    --
+    -- admin chat
     if message.chat.id == config.admin_chat and message.text then
         local text = message.text:gsub("@" .. bot.username, '')
         local words = utils.split(text, "%s+")
@@ -451,7 +446,6 @@ function api.on_message(message)
         end
     end
 
-
     if admin_only then
         return
     end
@@ -467,14 +461,18 @@ function api.on_message(message)
 
     if message.text then
         local has_stats = false
+        -- parse any two lines looking like stats
         for stats in message.text:gmatch("Time Span[^\r\n]+\n[^\r\n]+") do
             utils.pcall(handle_stats, message, stats)
             has_stats = true
         end
+        -- agents on photo
         if not has_stats then
             utils.pcall(handle_agents, user, message)
         end
     end
+
+    -- new photo
     if message.photo then
         utils.pcall(handle_new_photo, user, message)
     end
@@ -574,6 +572,7 @@ function api.on_callback_query(callback_query)
             )
         else
             utils.pcall(callback_validate, callback_query.data, callback_query.message, photo)
+            api.answer_callback_query(callback_query.id)
         end
         return
     end
@@ -596,6 +595,7 @@ function api.on_callback_query(callback_query)
             elseif photo.status == "public" then
                 utils.pcall(callback_public, answer, callback_query.message, photo)
             end
+            api.answer_callback_query(callback_query.id)
         else
             api.answer_callback_query(
                 callback_query.id,
