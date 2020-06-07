@@ -87,6 +87,27 @@ local function fwd_photo(chat_id, photo)
     local no = ''
     if verified and valid then yes = '☑️ ' end
     if verified and not valid then no = '❌ ' end
+    local inline_keyboard
+    if verified and valid then
+        inline_keyboard =
+            api.inline_keyboard():row(
+                api.row():callback_data_button(
+                    '☑️ Valide',
+                    'yes'
+                )
+            )
+    else
+        inline_keyboard =
+            api.inline_keyboard():row(
+                api.row():callback_data_button(
+                    yes .. 'Valide',
+                    'yes'
+                ):callback_data_button(
+                    no .. 'Invalide',
+                    'no'
+                )
+            )
+    end
     api.send_photo(
         chat_id,
         photo.file_id,
@@ -96,15 +117,7 @@ local function fwd_photo(chat_id, photo)
         nil,
         nil,
         nil,
-        api.inline_keyboard():row(
-            api.row():callback_data_button(
-                yes .. 'Valide',
-                'yes'
-            ):callback_data_button(
-                no .. 'Invalide',
-                'no'
-            )
-        )
+        inline_keyboard
     )
 end
 
