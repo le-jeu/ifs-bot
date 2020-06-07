@@ -224,15 +224,16 @@ local function handle_stats(message, stats)
         end
         if not err then
             db.AgentStat{
-                agent_id = stats.data["Agent Name"],
+                agent_id = stats.data["Agent Name"]:lower(),
+                name = stats.data["Agent Name"],
                 timestamp = message.date,
                 time_span = stats.data["Time Span"],
-                faciton = stats.data["Agent Faction"],
+                faction = stats.data["Agent Faction"],
                 date = stats.data["Date (yyyy-mm-dd)"],
                 time = stats.data["Time (hh:mm:ss)"],
                 level = stats.data["Level"],
                 lifetime_ap = stats.data["Lifetime AP"],
-                xm_recharged_portals = stats.data["XM Recharged"],
+                xm_recharged = stats.data["XM Recharged"],
             }
         else
             answer = "error parsing data"

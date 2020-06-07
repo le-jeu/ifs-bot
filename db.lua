@@ -42,6 +42,7 @@ return function(filename)
 	local AgentStat = db:model {
 		__tablename__ = 'agent_stat',
 		agent_id = 'TEXT', -- foreign key (ingress_agent.agent_id)
+		name = 'TEXT',
 		timestamp = 'INTEGER',
 		time_span = 'TEXT',
     	faction = 'TEXT',
@@ -49,7 +50,7 @@ return function(filename)
    		time = 'TEXT',
     	level = 'INTEGER',
     	lifetime_ap = 'INTEGER',
-    	xm_recharged_portals = 'INTEGER',
+    	xm_recharged = 'INTEGER',
 	}
 
 	-- db cleanup forcing pseudo foreign key
