@@ -6,6 +6,9 @@ local ingress = require "ingress"
 
 local api = require('telegram-bot-lua.core').configure(config.bot_token)
 
+local bot = api.get_me().result
+print(json.encode(bot))
+
 local db = require("db")(config.db_file)
 
 local admin_only = true
@@ -239,6 +242,140 @@ local function handle_stats(message, stats)
     )
 end
 
+local commands = {
+    {
+        name = "public",
+        description = "activer les messages privés des participants",
+        action = function (message, words)
+            admin_only = false
+            api.send_message(
+                message.chat.id,
+                "Les participants peuvent m'envoyer des selfies",
+                nil,
+                nil,
+                nil,
+                message.message_id
+            )
+        end,
+    },
+    {
+        name = "stop",
+        description = "désactiver les messages privés des participants",
+        action = function (message, words)
+            admin_only = true
+            api.send_message(
+                message.chat.id,
+                "J'arrête les selfies",
+                nil,
+                nil,
+                nil,
+                message.message_id
+            )
+        end,
+    },
+    {
+        name = "msgok",
+        description = "message reçu après validation",
+        action = function (message, words)
+            api.send_message(
+                message.chat.id,
+                msg_ok,
+                nil,
+                nil,
+                nil,
+                message.message_id
+            )
+        end,
+    },
+    {
+        name = "pending",
+        description = "rappelle un selfie non vérifié",
+        action = function (message, words)
+            local photo = db.TelegramPhoto:get{status = 'verification'}
+            if photo then
+                fwd_photo(config.fwd_to, photo)
+            else
+                api.send_message(
+                    message.chat.id,
+                    "Aucune photo en attente",
+                    nil,
+                    nil,
+                    nil,
+                    message.message_id
+                )
+            end
+        end,
+    },
+    {
+        name = "check",
+        description = "indique si un joueur est validé",
+        action = function (message, words)
+            if not words[2] then return end
+            local agent_id = words[2]:lower():match('%w+')
+            if agent_id then
+                local photos_id = {}
+                for photo_agent in db.PhotoAgent:where_iterator{agent_id = agent_id} do
+                    photos_id[photo_agent.photo_id] = true
+                end
+                local valid = false
+                local user
+                local count = 0
+                for photo_id in pairs(photos_id) do
+                    local photo = db.TelegramPhoto:get{file_unique_id = photo_id}
+                    if photo.valid ~= 0 then
+                        valid = true
+                        user = users:get(photo.user_id).username
+                        break
+                    end
+                    count = count + 1
+                end
+                if valid then
+                    api.send_message(
+                        message.chat.id,
+                        "L'agent " .. agent_id .. ' est validé par un selfie de @' .. user,
+                        nil,
+                        nil,
+                        nil,
+                        message.message_id
+                    )
+                else
+                    api.send_message(
+                        message.chat.id,
+                        "L'agent " .. agent_id .. " n'est validé sur aucun selfie parmi " .. tostring(count),
+                        nil,
+                        nil,
+                        nil,
+                        message.message_id
+                    )
+                end
+            end
+        end,
+    },
+    {
+        name = 'selfies',
+        description = 'donne les selfies sur lesquels apparaît le joueur',
+        action = function (message, words)
+            if not words[2] then return end
+            local agent_id = words[2]:lower():match('%w+')
+            if agent_id then
+                local photos_id = {}
+                for photo_agent in db.PhotoAgent:where_iterator{agent_id = agent_id} do
+                    photos_id[photo_agent.photo_id] = true
+                end
+                for photo_id in pairs(photos_id) do
+                    local photo = db.TelegramPhoto:get{file_unique_id = photo_id}
+                    fwd_photo(message.chat.id, photo)
+                end
+            end
+        end,
+    },
+}
+
+for _,c in ipairs(commands) do
+    commands[c.name] = c
+end
+
+
 function api.on_message(message)
     print(json.encode(message))
     -- update authorization on join
@@ -272,114 +409,30 @@ function api.on_message(message)
 
     --
     if message.chat.id == config.admin_chat and message.text then
-        local text = message.text:gsub("@MontcuqBot", '')
+        local text = message.text:gsub("@" .. bot.username, '')
         local words = utils.split(text, "%s+")
         if #words > 0 then
-            local command = words[1]:match("/[%w_]+")
-            if command == '/help' then
-                api.send_message(
-                    message.chat.id,
-                    "/public@MontcuqBot - autoriser l'envoie de selfie par les participants\n" ..
-                    "/stop@MontcuqBot - stopper l'envoie de selfie\n" ..
-                    "/msgok@MontcuqBot - message reçu après validation\n" ..
-                    "/pending@MontcuqBot - fwd sur le fwd un selfie à vérifier\n" ..
-                    "/check@MontcuqBot pseudo - indique si un agent a un selfie ok\n" ..
-                    "/selfies@MontcuqBot pseudo - fwd ici tous les selfies d'un agent\n"
-                )
-            elseif command == '/public' then
-                admin_only = false
-                api.send_message(
-                    message.chat.id,
-                    "Les participants peuvent m'envoyer des selfies",
-                    nil,
-                    nil,
-                    nil,
-                    message.message_id
-                )
-            elseif command == '/stop' then
-                admin_only = true
-                api.send_message(
-                    message.chat.id,
-                    "J'arrête les selfies",
-                    nil,
-                    nil,
-                    nil,
-                    message.message_id
-                )
-            elseif command == '/msgok' then
-                api.send_message(
-                    message.chat.id,
-                    msg_ok,
-                    nil,
-                    nil,
-                    nil,
-                    message.message_id
-                )
-            elseif command == '/pending' then
-                local photo = db.TelegramPhoto:get{status = 'verification'}
-                if photo then
-                    fwd_photo(config.fwd_to, photo)
-                else
-                    api.send_message(
-                        message.chat.id,
-                        "Aucune photo en attente",
-                        nil,
-                        nil,
-                        nil,
-                        message.message_id
-                    )
-                end
-            elseif command == '/check' and words[2] then
-                local agent_id = words[2]:lower():match('%w+')
-                if agent_id then
-                    local photos_id = {}
-                    for photo_agent in db.PhotoAgent:where_iterator{agent_id = agent_id} do
-                        photos_id[photo_agent.photo_id] = true
-                    end
-                    local valid = false
-                    local user
-                    local count = 0
-                    for photo_id in pairs(photos_id) do
-                        local photo = db.TelegramPhoto:get{file_unique_id = photo_id}
-                        if photo.valid ~= 0 then
-                            valid = true
-                            user = users:get(photo.user_id).username
-                            break
-                        end
-                        count = count + 1
-                    end
-                    if valid then
-                        api.send_message(
-                            message.chat.id,
-                            "L'agent " .. agent_id .. ' est validé par un selfie de @' .. user,
-                            nil,
-                            nil,
-                            nil,
-                            message.message_id
+            local command = words[1]:match("/([%w_]+)")
+            if command == 'help' then
+                local help_message = ""
+                for _, c in ipairs(commands) do
+                    help_message = help_message .. string.format(
+                        "/%s@%s - %s\n",
+                        c.name,
+                        bot.username,
+                        c.description
                         )
-                    else
-                        api.send_message(
-                            message.chat.id,
-                            "L'agent " .. agent_id .. " n'est validé sur aucun selfie parmi " .. tostring(count),
-                            nil,
-                            nil,
-                            nil,
-                            message.message_id
-                        )
-                    end
                 end
-            elseif command == '/selfies' and words[2] then
-                local agent_id = words[2]:lower():match('%w+')
-                if agent_id then
-                    local photos_id = {}
-                    for photo_agent in db.PhotoAgent:where_iterator{agent_id = agent_id} do
-                        photos_id[photo_agent.photo_id] = true
-                    end
-                    for photo_id in pairs(photos_id) do
-                        local photo = db.TelegramPhoto:get{file_unique_id = photo_id}
-                        fwd_photo(message.chat.id, photo)
-                    end
-                end
+                api.send_message(
+                    message.chat.id,
+                    help_message,
+                    nil,
+                    nil,
+                    nil,
+                    message.message_id
+                )
+            elseif commands[command] then
+                commands[command].action(message, words)
             end
         end
     end
@@ -412,6 +465,7 @@ function api.on_message(message)
         utils.pcall(handle_new_photo, user, message)
     end
 end
+
 function api.on_channel_post(channel_post)
     print(json.encode(channel_post))
 end
