@@ -219,6 +219,7 @@ local function handle_stats(message, stats)
         end
         if not err then
             db.AgentStat{
+                user_id = message.from.id,
                 agent_id = stats.data["Agent Name"]:lower(),
                 name = stats.data["Agent Name"],
                 timestamp = message.date,

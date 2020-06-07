@@ -41,6 +41,7 @@ return function(filename)
 
 	local AgentStat = db:model {
 		__tablename__ = 'agent_stat',
+		user_id = 'TEXT',  -- foreign key (telegram_user.agent_id)
 		agent_id = 'TEXT', -- foreign key (ingress_agent.agent_id)
 		name = 'TEXT',
 		timestamp = 'INTEGER',
