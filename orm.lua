@@ -1,21 +1,46 @@
 local sqlite3 = require("lsqlite3")
 
-local function mapDB(model, f, ...)
-  return function(...)
-    return model:from(f(...))
-  end, ...
-end
-
 local function mapDB(model, f, s, v)
   local function domap(...)
     v = ...
     if v ~= nil then
-      return model:from(...)
+      return model:from(v, true)
     end
   end
   return function()
     return domap(f(s, v))
   end
+end
+
+-- convert number to boolean and use default for everything else
+local function value2boolean(n, default)
+	if n == true or n == false then
+		return n
+	end
+	if type(n) == 'number' then
+		return n ~= 0
+	end
+	return default and true or false
+end
+
+local function convert_from_sql(type, value)
+	if value == nil then
+		return nil
+	end
+	if type == 'BOOLEAN' then
+		return value2boolean(value)
+	end
+	return value
+end
+
+local function convert_to_sql(type, value)
+	if value == nil then
+		return nil
+	end
+	if type == 'BOOLEAN' then
+		return value and 1 or 0
+	end
+	return value
 end
 
 local function open(db)
@@ -42,7 +67,7 @@ local function open(db)
 			end
 			table.insert(sql_fields, entry)
 		end
-		db:exec(string.format("create table %s (%s);", name, table.concat(sql_fields, ', ')))
+		db:exec(string.format("CREATE TABLE %s (%s);", name, table.concat(sql_fields, ', ')))
 
 	    local meta = { name = name, primary = primary, fields = fieldsName, fieldsType = fieldsType }
 	    meta.__index = self.index
@@ -52,8 +77,9 @@ local function open(db)
 
 	function Model:newindex(field, value)
 		if self.__table__.fieldsType[field] and self.__table__.primary ~= field then
+			local value = convert_to_sql(self.__table__.fieldsType[field], value)
 			if self['_' .. field] ~= value then
-				self['_' .. field] = value
+				rawset(self, '_' .. field, value)
 				self.__table__.update(self, field)
 			end
 		end
@@ -61,7 +87,7 @@ local function open(db)
 
 	function Model:index(field)
 		if self.__table__.fieldsType[field] then
-			return self['_' .. field]
+			return convert_from_sql(self.__table__.fieldsType[field], rawget(self, '_' .. field))
 		end
 	end
 
@@ -103,12 +129,12 @@ local function open(db)
 	function Model:update(field)
 		if self.__table__.fieldsType[field] and self.__table__.primary ~= field then
 			local sql = string.format(
-				"UPDATE %s SET %s=:%s WHERE %s=:%s",
+				"UPDATE %s SET %s=:_%s WHERE %s=:_%s",
 				self.__table__.name,
 				field, field,
 				self.__table__.primary, self.__table__.primary)
 			local stmt = db:prepare(sql)
-			stmt:bind_names{ [field] = self['_' .. field], [self.__table__.primary] = self['_' .. self.__table__.primary] }
+			stmt:bind_names(self)
 			stmt:step()
 			stmt:finalize()
 		end
@@ -160,7 +186,7 @@ local function open(db)
 		local stmt = db:prepare(sql)
 		stmt:bind_names(kwargs)
 		for row in stmt:nrows() do
-			return self:from(row)
+			return self:from(row, true)
 		end
 	end
 
@@ -179,35 +205,30 @@ local function open(db)
 		return stmt:finalize()
 	end
 
-	function Model:from(obj)
+	function Model:from(obj, from_db)
 		if not obj then return end
-		return self(obj, true)
+		return self(obj, true, from_db)
 	end
 
-	function Model:__call(init, inDB)
+	function Model:__call(init, dont_insert, from_db)
 		local instance = {}
 		instance.__table__ = self
 		for k,v in pairs(self.fieldsType) do
-			local default = (v == 'TEXT') and '' or 0
-			instance['_' .. k] = init[k] or default
+			if from_db then
+				instance['_' .. k] = init[k]
+			else
+				instance['_' .. k] = convert_to_sql(v, init[k])
+			end
 		end
-		if not inDB then
-			local sql = string.format(
-				"INSERT INTO %s(%s) VALUES (:_%s);",
-				self.name,
-				table.concat(self.fields, ', '),
-				table.concat(self.fields, ', :_')
-			)
-			local stmt = assert(db:prepare(sql), db:errmsg() .. ': ' .. sql)
-			stmt:bind_names(instance)
-			stmt:step()
-			if stmt:finalize() ~= sqlite3.OK then
+		setmetatable(instance, self)
+		if not dont_insert then
+			if self:insert(instance) ~= sqlite3.OK then
 				if self.primary and init[self.primary] then
 					return self:where{[self.primary] = init[self.primary]}[1]
 				end
 			end
 		end
-		return setmetatable(instance, self)
+		return instance
 	end
 
 	function Model:close()

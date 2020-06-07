@@ -31,7 +31,6 @@ function users:get(id)
     local user = db.TelegramUser{user_id = id}
     -- check if member of the common group
     local ret = api.get_chat_member(config.chat_membership, user.user_id)
-    print('member', config.chat_membership, json.encode(ret))
     if ret and ret.ok then
         user.member = is_member(ret.result) and 1 or 0
         if ret.result.user.username then
@@ -40,7 +39,6 @@ function users:get(id)
     end
     -- check if member of the amdin group
     local ret = api.get_chat_member(config.admin_chat, user.user_id)
-    print('admin', config.admin_chat, json.encode(ret))
     if ret and ret.ok then
         user.admin = is_member(ret.result) and 1 or 0
         if ret.result.user.username then
@@ -81,14 +79,10 @@ local function fwd_photo(chat_id, photo)
     end
     local user = users:get(photo.user_id)
     local verified = photo.status == 'verified'
-    local valid = photo.valid ~= 0
-    local public = photo.public ~= 0
-    local yes = ''
     local no = ''
-    if verified and valid then yes = '☑️ ' end
-    if verified and not valid then no = '❌ ' end
     local inline_keyboard
-    if verified and valid then
+    if verified and photo.valid then
+        -- don't invalidate valid photo
         inline_keyboard =
             api.inline_keyboard():row(
                 api.row():callback_data_button(
@@ -100,10 +94,10 @@ local function fwd_photo(chat_id, photo)
         inline_keyboard =
             api.inline_keyboard():row(
                 api.row():callback_data_button(
-                    yes .. 'Valide',
+                    'Valide',
                     'yes'
                 ):callback_data_button(
-                    no .. 'Invalide',
+                    (verified and '❌ ' or '') .. 'Invalide',
                     'no'
                 )
             )
@@ -113,7 +107,7 @@ local function fwd_photo(chat_id, photo)
         photo.file_id,
         "TG: @" .. user.username ..
         "\nAgents: " .. table.concat(agents, ', ') ..
-        "\nPublic: " .. (public and "oui" or "non"),
+        "\nPublic: " .. (photo.public and "oui" or "non"),
         nil,
         nil,
         nil,
@@ -143,7 +137,7 @@ local function handle_new_photo(user, message)
         file_unique_id = message.photo[1].file_unique_id,
         status = 'new',
         user_id = user.user_id,
-        timestamp = message.date
+        timestamp = message.date,
     }
     -- new photo
     if photo.status == 'new' and photo.user_id == user.user_id then
@@ -326,7 +320,7 @@ local commands = {
                 local count = 0
                 for photo_id in pairs(photos_id) do
                     local photo = db.TelegramPhoto:get{file_unique_id = photo_id}
-                    if photo.valid ~= 0 then
+                    if photo.valid then
                         valid = true
                         user = users:get(photo.user_id).username
                         break
@@ -378,14 +372,14 @@ function api.on_message(message)
     if message.new_chat_members and message.chat.id == config.chat_membership then
         for i, user in ipairs(message.new_chat_members) do
             local user = users:get(user.id)
-            user.member = 1
+            user.member = true
         end
         return
     end
     -- update authorization on leave
     if message.left_chat_member and message.chat.id == config.chat_membership then
         local user = users:get(message.left_chat_member.id)
-        user.member = 0
+        user.member = false
         return
     end
 
@@ -400,7 +394,7 @@ function api.on_message(message)
 
     -- update admins
     if message.chat.id == config.admin_chat then
-        user.admin = 1
+        user.admin = true
     end
 
     -- admin chat
@@ -438,7 +432,7 @@ function api.on_message(message)
         return
     end
 
-    if user.member == 0 and user.admin == 0 then
+    if not user.member and not user.admin then
         return
     end
 
@@ -489,9 +483,9 @@ end
 local function callback_public(answer, message, photo)
     photo.status = "verification"
     if answer == 'yes' then
-        photo.public = 1
+        photo.public = true
     elseif answer == 'no' then
-        photo.public = 0
+        photo.public = false
     end
     fwd_photo(config.fwd_to, photo)
     api.edit_message_text(
@@ -503,8 +497,8 @@ end
 
 local function callback_validate(answer, message, photo)
     local inline_keyboard
-    if answer == 'yes' and photo.valid == 0 then
-        photo.valid = 1
+    if answer == 'yes' and not photo.valid then
+        photo.valid = true
         inline_keyboard =
             api.inline_keyboard():row(
                 api.row():callback_data_button(
@@ -518,7 +512,7 @@ local function callback_validate(answer, message, photo)
             msg_ok
         )
     elseif photo.status == 'verification' and answer ~= 'yes' then
-        photo.valid = 0
+        photo.valid = false
         inline_keyboard =
             api.inline_keyboard():row(
                 api.row():callback_data_button(

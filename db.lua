@@ -9,8 +9,8 @@ return function(filename)
 		__primarykey__ = 'user_id',
 		user_id = 'TEXT',
 		username = 'TEXT',
-		member = 'INTEGER',
-		admin = 'INTEGER'
+		member = 'BOOLEAN',
+		admin = 'BOOLEAN'
 	}
 
 	local TelegramPhoto = db:model {
@@ -19,10 +19,10 @@ return function(filename)
 		file_unique_id = 'TEXT',
 		file_id = 'TEXT',
 		user_id = 'TEXT', -- foreign key (telegram_user.user_id)
-		public = 'INTEGER',
+		public = 'BOOLEAN',
 		status = 'TEXT',
-		valid = 'INTEGER',
-		timestamp = 'INTEGER'
+		valid = 'BOOLEAN',
+		timestamp = 'INTEGER',
 	}
 
 	local IngressAgent = db:model {
@@ -30,7 +30,7 @@ return function(filename)
 		__primarykey__ = 'agent_id',
 		agent_id = 'TEXT',
 		name = 'TEXT',
-		registered = 'INTEGER'
+		registered = 'BOOLEAN'
 	}
 
 	local PhotoAgent = db:model {
@@ -44,14 +44,14 @@ return function(filename)
 		user_id = 'TEXT',  -- foreign key (telegram_user.agent_id)
 		agent_id = 'TEXT', -- foreign key (ingress_agent.agent_id)
 		name = 'TEXT',
-		timestamp = 'INTEGER',
 		time_span = 'TEXT',
-    	faction = 'TEXT',
-    	date = 'TEXT',
-   		time = 'TEXT',
-    	level = 'INTEGER',
-    	lifetime_ap = 'INTEGER',
-    	xm_recharged = 'INTEGER',
+		faction = 'TEXT',
+		date = 'TEXT',
+		time = 'TEXT',
+		level = 'INTEGER',
+		lifetime_ap = 'INTEGER',
+		xm_recharged = 'INTEGER',
+		timestamp = 'INTEGER',
 	}
 
 	-- db cleanup forcing pseudo foreign key
