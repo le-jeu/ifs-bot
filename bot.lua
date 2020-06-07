@@ -244,12 +244,22 @@ local function handle_stats(message, stats)
         message.from.id,
         answer,
         "Markdown",
-        true,
-        false,
-        nil,
-        nil
+        true
     )
 end
+
+local function reply_message(message, text, inline_keyboard)
+    api.send_message(
+        message.chat.id,
+        text,
+        "Markdown",
+        nil,
+        nil,
+        message.message_id,
+        inline_keyboard
+    )
+end
+
 
 local commands = {
     {
@@ -257,13 +267,9 @@ local commands = {
         description = "activer les messages privés des participants",
         action = function (message, words)
             admin_only = false
-            api.send_message(
-                message.chat.id,
-                "Les participants peuvent m'envoyer des selfies",
-                nil,
-                nil,
-                nil,
-                message.message_id
+            reply_message(
+                message,
+                "Les participants peuvent m'envoyer des selfies"
             )
         end,
     },
@@ -272,13 +278,9 @@ local commands = {
         description = "désactiver les messages privés des participants",
         action = function (message, words)
             admin_only = true
-            api.send_message(
-                message.chat.id,
-                "J'arrête les selfies",
-                nil,
-                nil,
-                nil,
-                message.message_id
+            reply_message(
+                message,
+                "J'arrête les selfies"
             )
         end,
     },
@@ -286,13 +288,9 @@ local commands = {
         name = "msgok",
         description = "message reçu après validation",
         action = function (message, words)
-            api.send_message(
-                message.chat.id,
-                msg_ok,
-                nil,
-                nil,
-                nil,
-                message.message_id
+            reply_message(
+                message,
+                msg_ok
             )
         end,
     },
@@ -304,13 +302,9 @@ local commands = {
             if photo then
                 fwd_photo(config.fwd_to, photo)
             else
-                api.send_message(
-                    message.chat.id,
-                    "Aucune photo en attente",
-                    nil,
-                    nil,
-                    nil,
-                    message.message_id
+                reply_message(
+                    message,
+                    "Aucune photo en attente"
                 )
             end
         end,
@@ -339,22 +333,14 @@ local commands = {
                     count = count + 1
                 end
                 if valid then
-                    api.send_message(
-                        message.chat.id,
-                        "L'agent " .. agent_id .. ' est validé par un selfie de @' .. user,
-                        nil,
-                        nil,
-                        nil,
-                        message.message_id
+                    reply_message(
+                        message,
+                        "L'agent " .. agent_id .. ' est validé par un selfie de @' .. user
                     )
                 else
-                    api.send_message(
-                        message.chat.id,
-                        "L'agent " .. agent_id .. " n'est validé sur aucun selfie parmi " .. tostring(count),
-                        nil,
-                        nil,
-                        nil,
-                        message.message_id
+                    reply_message(
+                        message,
+                        "L'agent " .. agent_id .. " n'est validé sur aucun selfie parmi " .. tostring(count)
                     )
                 end
             end
@@ -432,13 +418,9 @@ function api.on_message(message)
                         c.description
                         )
                 end
-                api.send_message(
-                    message.chat.id,
-                    help_message,
-                    nil,
-                    nil,
-                    nil,
-                    message.message_id
+                reply_message(
+                    message,
+                    help_message
                 )
             elseif commands[command] then
                 commands[command].action(message, words)
