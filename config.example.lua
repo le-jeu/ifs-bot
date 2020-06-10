@@ -11,4 +11,6 @@ config.admin_chat = 1
 -- chat id to forward selfies verification
 config.fwd_to = 2
 
+config.update_file = 'updates.json'
+
 return config

@@ -365,6 +365,12 @@ for _,c in ipairs(commands) do
     commands[c.name] = c
 end
 
+-- log for replay
+function api.on_update(update)
+    local update_file = io.open(config.update_file, 'a')
+    update_file:write(json.encode(update), '\n')
+    update_file:close()
+end
 
 function api.on_message(message)
     print(json.encode(message))
