@@ -15,6 +15,10 @@ function utils.split(str, sep)
     return ret
 end
 
+function utils.trim(str)
+    return str:gsub('^%s+', ''):gsub('%s+$', '')
+end
+
 local function msgh(err)
     print(debug.traceback(err, 2))
 end

@@ -56,8 +56,8 @@ local function parse_stats(text)
     if #lines < 2 then
         return { error = "nothing to parse" }
     end
-    local header = lines[1]:gsub('^%s*', ''):gsub('%s*$', '')
-    local data = utils.split(lines[2]:gsub('^%s*', ''):gsub('%s*$', ''), "%s+")
+    local header = utils.trim(lines[1])
+    local data = utils.split(utils.trim(lines[2]), "%s+")
 
     -- Merge locale dependent time span
     for i,v in ipairs(data) do
