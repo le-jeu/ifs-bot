@@ -49,17 +49,6 @@ function users:get(id)
     return user
 end
 
-local msg_ok = [[Merci pour le selfie, voici le lien pour rejoindre le salon Zoom :
-
-https://cccconfer.zoom.us/j/123456789
-
-Le Google form pour renseigner tes stats :
-
-https://docs.google.com/forms/d/12345678901234567890/edit
-
-MERCI DE NE PAS DIFFUSER CES LIENS, BONNE APRÈS MIDI !
-🤪🤩🥳]]
-
 local yesNoInlineKeyboard =
     api.inline_keyboard():row(
         api.row():callback_data_button(
@@ -515,7 +504,7 @@ local function callback_validate(answer, message, photo)
         -- message de validation pour le joueur
         api.send_message(
             photo.user_id,
-            msg_ok
+            config.msg_ok
         )
     elseif photo.status == 'verification' and answer ~= 'yes' then
         photo.valid = false
@@ -570,7 +559,7 @@ function api.on_callback_query(callback_query)
             end
         end
 
-        -- check existance and date
+        -- check existence and date
         if photo and photo.timestamp < callback_query.message.date then
             local answer = callback_query.data
             if photo.status == "caption" then

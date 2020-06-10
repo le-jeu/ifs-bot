@@ -13,4 +13,6 @@ config.fwd_to = 2
 
 config.update_file = 'updates.json'
 
+config.msg_ok = [[Your selfie has been verified.]]
+
 return config
