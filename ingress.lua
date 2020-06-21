@@ -51,6 +51,14 @@ local ingress_entries = {
     "Clear Fields Events"
 }
 
+local text_entries = {
+    ["Time Span"] = true,
+    ["Agent Name"] = true,
+    ["Agent Faction"] = true,
+    ["Date (yyyy-mm-dd)"] = true,
+    ["Time (hh:mm:ss)"] = true,
+}
+
 local function parse_stats(text)
     local lines = utils.split(text, '\n')
     if #lines < 2 then
@@ -74,7 +82,12 @@ local function parse_stats(text)
         local ok = false
         for _,key in ipairs(ingress_entries) do
             if header:sub(1,#key) == key then
-                ret[key] = value
+                if text_entries[key] then
+                    ret[key] = value
+                else
+                    ret[key] = tonumber(value)
+                end
+
                 ok = true
                 header = header:sub(#key+1)
                 break
@@ -85,7 +98,6 @@ local function parse_stats(text)
 
         if not ok then
             local first = header:match('^%S+')
-            print(first)
             ret[first] = value
             header = header:sub(#first + 1)
         end
@@ -112,19 +124,33 @@ local function parse_stats(text)
     }
 end
 
-local function print_stats(ret)
+local function print_stats(stat, sep)
+    sep = sep or '\t'
     local l1 = {}
     local l2 = {}
     for i,k in ipairs(ingress_entries) do
-        if ret[k] then
+        if stat[k] then
             table.insert(l1, k)
-            table.insert(l2, ret[k])
+            table.insert(l2, stat[k])
         end
     end
-    return table.concat(l1, '\t') .. '\n' .. table.concat(l2, '\t') .. '\n'
+    return table.concat(l1, sep) .. '\n' .. table.concat(l2, sep) .. '\n'
+end
+
+local function diff_stats(stat1, stat2)
+    local ret = {}
+    for k, v in pairs(stat2) do
+        if text_entries[k] then
+            ret[k] = v
+        else
+            ret[k] = v - (stat1[k] or 0)
+        end
+    end
+    return ret
 end
 
 return {
     parse_stats = parse_stats,
-    print_stats = print_stats
+    print_stats = print_stats,
+    diff_stats = diff_stats,
 }
